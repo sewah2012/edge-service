@@ -13,7 +13,7 @@ public class WebEndpoints {
     @Bean
     public RouterFunction<ServerResponse> routerFunction(){
         return RouterFunctions.route()
-                .GET("/catalog-fallback", request -> ServerResponse.ok().body(Mono.just(""),String.class))
+                .GET("/catalog-fallback", request -> ServerResponse.ok().body(Mono.just("catalog-service down"),String.class))
                 .POST("/catalog-fallback", request -> ServerResponse.status(HttpStatus.SERVICE_UNAVAILABLE).build())
                 .build();
     }
