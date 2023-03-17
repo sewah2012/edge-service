@@ -11,7 +11,7 @@ spring:
   lifecycle:
     timeout-per-shutdown-phase: 15s
   session:
-    store-type: redis
+#    store-type: redis
     timeout: 10m
     redis:
       namespace: polar:edge
@@ -22,14 +22,15 @@ spring:
           keycloak:
             client-id: edge-service
             client-secret: polar-keycloak-secret
-            scope: openid
+            scope: openid,roles
         provider:
           keycloak:
             issuer-uri: http://localhost:8080/realms/PolarBookshop
   config:
     #    add optional if you want to run the application without the config server: optional:configserver:.
     #    import: "configserver:"
-    import: "optional:configserver:"
+#    import: "optional:configserver:"
+    import: ""
   cloud:
     config:
       uri: ${SPRING_CLOUD_CONFIG_URI:http://localhost:8888}
@@ -41,6 +42,7 @@ spring:
         initial-interval: 1000 # 1s
         max-interval: 2000 # 2s
         multiplier: 1.1
+      enabled: false
     gateway:
       httpclient:
         connect-timeout: 2000
@@ -50,6 +52,7 @@ spring:
           max-idle-time: 15s
           max-life-time: 60s
       default-filters:
+        - TokenRelay
         - SaveSession
         - name: RequestRateLimiter
           args:
@@ -71,10 +74,15 @@ spring:
               factor: 2
               basedOnPreviousValue: false
       routes:
+        - id: spa-route
+          uri: ${SPA_URL:http://localhost:9004}
+          predicates:
+            - Path=/,/*.css,/*.js,/favicon.ico
+
         - id: catalog-route
           uri: ${CATALOG_SERVICE_URL:http://localhost:9001}/books
           predicates:
-          - Path=/books/**
+            - Path=/books/**
           filters:
             - name: CircuitBreaker
               args:
@@ -109,6 +117,32 @@ resilience4j:
       default:
         timeout-duration: 5s
 
+#logging:
+#  level:
+#    io.github.resilience4j: DEBUG
+
 logging:
+  group:
+    circuitbreaker: io.github.resilience4j, org.springframework.cloud.circuitbreaker
   level:
-    io.github.resilience4j: DEBUG
+    circuitbreaker: info
+  pattern:
+    level: "%5p [${spring.application.name},%X{trace_id},%X{span_id}]"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: configprops, env, gateway, health, heapdump, info, loggers, mappings, prometheus
+  endpoint:
+    health:
+      show-details: always
+      show-components: always
+      probes:
+        enabled: true
+      group:
+        readiness:
+          include: readinessState,redis
+  metrics:
+    tags:
+      application: ${spring.application.name}
